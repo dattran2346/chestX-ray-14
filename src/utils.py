@@ -1,5 +1,6 @@
 from constant import *
 from dataset import XrayDataset
+import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score

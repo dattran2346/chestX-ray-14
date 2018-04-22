@@ -1,7 +1,7 @@
 from model import DenseNet121 
 from utils import *
 from constant import *
-from logger import Logger
+from tensorboard import Tensorboard
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -25,7 +25,7 @@ def main():
     for d in dirs:
         if not os.path.isdir(d):
             os.makedirs(d)
-    logger = Logger(log_dir)
+    board = Tensorboard(log_dir)
     model = '%s/model.path.tar' % model_dir
     
     # init training
@@ -53,7 +53,7 @@ def main():
     # TODO: Add checkpoint
     for e in range(EPOCHS):
         # train
-        train(parallel_net, train_loader, optimizer, criterion, e, batches, logger)
+        train(parallel_net, train_loader, optimizer, criterion, e, batches, board)
         
         # validate
         loss_val, aurocs_mean = validate(parallel_net, valid_loader, criterion)
@@ -90,7 +90,7 @@ def validate(model, dataloader, criterion):
     print('The average AUROC is %.3f' % aurocs_mean)
     return np.mean(losses), aurocs_mean
 
-def train(model, dataloader, optimizer, criterion, epoch, batches, logger):
+def train(model, dataloader, optimizer, criterion, epoch, batches, board):
     model.train()
     iterator = iter(dataloader)
     stime = time.time()
@@ -108,7 +108,7 @@ def train(model, dataloader, optimizer, criterion, epoch, batches, logger):
         duration = time.time() - stime
         print('Epochs: [%d][%d/%d]\tTime: %.3f \tLoss: %2.3f' % (epoch, i+1, batches, duration, loss))
         stime += duration
-        logger.scalar_summary('train_loss', loss.data, epoch * batches + i + 1)
+        board.scalar_summary('train_loss', loss.data, epoch * batches + i + 1)
         
 if __name__ == '__main__':
     #TODO: Add argument parser?, or put in config file
