@@ -1,44 +1,47 @@
 from constant import *
 from utils import *
-from model import DenseNet121
 from statistic import TestStat
 import torch
 from torch.autograd import Variable
 import numpy as np
+import argparse
+import sys
+import importlib
 
-def main():
-    # TODO: Pass name, architecture by arg
-    name = '20180420-092017'
-    model_name = '%s/%s/model.path.tar' % (DENSENET121_DIR, name)
-    net = DenseNet121(N_CLASSES).cuda()
+
+def main(args):
+    print(args)
+    network = importlib.import_module(args.model_def)
+    architect = network.architect
+    model_name = '%s/%s/%s/model.path.tar' % (args.base_model_dir, architect, args.model_name)
+    # net = DenseNet121(N_CLASSES).cuda()
+    net = network.build()
     parallel_net = torch.nn.DataParallel(net, device_ids=[0]).cuda()
     
     checkpoint = torch.load(model_name)
     print('Best loss', checkpoint['best_loss'])
     print('AUC', checkpoint['aurocs_mean'])
     parallel_net.load_state_dict(checkpoint['state_dict'])
-    # TODO: Load test set, argment by arg
-    test_loader = test_dataloader(image_list_file=CHEXNET_TEST_CSV, percentage=1, agumented=True)
-    test(parallel_net, test_loader, agumented=True)
+    test_loader = test_dataloader(image_list_file=args.test_csv, percentage=args.percentage, agumented=args.agumented)
+    test(parallel_net, test_loader, args)
 
 
-def test(model, dataloader, agumented=TEST_AGUMENTED):
+def test(model, dataloader, args):
     model.eval()
     targets = torch.FloatTensor()
     targets = targets.cuda()
     preds = torch.FloatTensor()
     preds = preds.cuda()
-    name = '20180420-092017'
-    stat = TestStat(name)
+    stat = TestStat(args.model_name)
     
     for data, target in dataloader:
         target = target.cuda()
-        if agumented:
+        if args.agumented:
             bs, cs, c, h, w = data.size()
             data = data.view(-1, c, h, w)
         data = Variable(data.cuda(), volatile=True)
         pred = model(data)
-        if agumented:
+        if args.agumented:
             pred = pred.view(bs, cs, -1).mean(1)
         targets = torch.cat((targets, target), 0)
         preds = torch.cat((preds, pred.data), 0)
@@ -49,7 +52,25 @@ def test(model, dataloader, agumented=TEST_AGUMENTED):
     for i in range(N_CLASSES):
         print('The AUROC of {} is {}'.format(CLASS_NAMES[i], aurocs[i]))
     stat.stat(aurocs)
-        
+
+    
+def parse_arguments(argv):
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument('--model_name', type=str, 
+        help='Model to test', default='20180422-075022')
+    parser.add_argument('--base_model_dir', type=str,
+        help='Where you put your model', default=MODEL_DIR)
+    parser.add_argument('--model_def', type=str,
+        help='Directory where to write trained models and checkpoints.', default='models.densenet121')
+    parser.add_argument('--agumented',
+        help='Agumented test data', action='store_true')
+    parser.add_argument('--test_csv', type=str,
+        help='List of image to test in csv format', default=CHEXNET_TEST_CSV)
+    parser.add_argument('--percentage', type=float,
+        help='Percentage of data to test', default=1.0) # default is test all
+    return parser.parse_args(argv)
+    
 if __name__ == '__main__':
     #TODO: Add argument parser?, or put in config file
-    main()
+    main(parse_arguments(sys.argv[1:]))

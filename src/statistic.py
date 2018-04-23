@@ -8,7 +8,6 @@ class TestStat(object):
         self.df = pd.read_csv(file)
         self.file = file
         self.name = name
-        print(file)
     
     def stat(self, aurocs):
         mean = np.array(aurocs).mean()
@@ -73,16 +72,26 @@ class TrainStat(object):
         self.row['valid_percentage'] = valid_percentage
         return self
 
-    def with_loss_function(self, loss):
-        self.row['loss_function'] = loss.__name__
+    def with_loss_function(self, criterion):
+        name = type(criterion).__name__.split('.')[-1]
+        self.row['loss_function'] = name
         return self
     
     def with_optimizer(self, optimizer):
-        self.row['optimizer'] = optimizer.__name__
+        '''
+        Log the optimizer param before training
+        '''
+        name = type(optimizer).__name__.split('.')[-1]
+        # param_groups key is not change before, during and after training
+        state = optimizer.state_dict()['param_groups'][-1]
+        state.pop('params')
+        op = '%s(%s)' % (name, state)
+        self.row['optimizer'] = op
         return self
     
     def with_scheduler(self, scheduler):
-        self.row['scheduler'] = scheduler.__name__
+        name = type(scheduler).__name__.split('.')[-1]
+        self.row['scheduler'] = name
         return self
     
     def with_train_time(self, train_time):
@@ -112,8 +121,8 @@ class TrainStat(object):
 # aurocs = [0.8311,0.922,0.8891,0.7146,0.8627,0.7883,0.782,0.8844,0.8148,0.8992,0.9343,0.8385,0.7914,0.9206]
 # stat.stat(aurocs)
 
-stat = TrainStat()
-(stat.with_model_name('test-model')
-     .with_architecture('densenet121')
-     .commit())
+# stat = TrainStat()
+# (stat.with_model_name('test-model')
+#      .with_architecture('densenet121')
+#      .commit())
         

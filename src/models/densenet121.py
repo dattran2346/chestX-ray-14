@@ -23,5 +23,11 @@ class DenseNet121(nn.Module):
                     *list(self.densenet121.features.children())[:-1]
                 )
         return self.extractor.forward(x)
+
+def build():
+    net = DenseNet121(14).cuda()
+    return net
+
+architect='densenet121'
     
     
