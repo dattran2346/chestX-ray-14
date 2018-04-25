@@ -13,6 +13,7 @@ import os
 import argparse
 import sys
 import importlib
+import h5py
 
 
 def main(args):
@@ -32,10 +33,19 @@ def main(args):
     for d in dirs:
         if not os.path.isdir(d):
             os.makedirs(d)
-    board = Tensorboard(log_dir)
     model = '%s/model.path.tar' % model_dir
+    stat_file = '%s/stat.h5' % log_dir
     
-    # load checkpoint model if exist
+    # init logger
+    board = Tensorboard(log_dir)
+    stat = {
+        'train_loss': np.zeros((args.max_nrof_epochs,), np.float32),
+        'train_auc': np.zeros((args.max_nrof_epochs,), np.float32),
+        'val_loss': np.zeros((args.max_nrof_epochs,), np.float32),
+        'val_auc': np.zeros((args.max_nrof_epochs,), np.float32)
+    }
+    
+    # TODO: load checkpoint model if exist
     # checkpoint = 
     
     # init training
@@ -64,10 +74,10 @@ def main(args):
     # TODO: Add checkpoint
     for e in range(args.max_nrof_epochs):
         # train
-        train(parallel_net, train_loader, optimizer, criterion, e, batches, board)
+        train(parallel_net, train_loader, optimizer, criterion, e, batches, stat)
         
         # validate
-        loss_val, aurocs_mean = validate(parallel_net, valid_loader, criterion)
+        loss_val, aurocs_mean = validate(parallel_net, valid_loader, criterion, e, stat)
         scheduler.step(loss_val)
 
         # save best model
@@ -80,31 +90,51 @@ def main(args):
                 'aurocs_mean': aurocs_mean,
                 'optimizer': optimizer.state_dict()
             }, model)
+        
+        # save stat
+        with h5py.File(stat_file, 'w') as f:
+            for key, value in stat.items():
+                f.create_dataset(key, data=value)
+                
     print('Model name %s' % subdir)
+    print('Args', args)
     
 
-def train(model, dataloader, optimizer, criterion, epoch, batches, board):
+def train(model, dataloader, optimizer, criterion, epoch, batches, stat):
     model.train()
     iterator = iter(dataloader)
     stime = time.time()
+    
+    losses = []
+    targets = torch.FloatTensor().cuda()
+    preds = torch.FloatTensor().cuda()
+    
     for i in range(batches):
-        #print('Batch')
         data, target = iterator.next()
         data = Variable(torch.FloatTensor(data).cuda())
         target = Variable(torch.FloatTensor(target).cuda())
         
         optimizer.zero_grad()
-        output = model(data)
-        loss = criterion(output, target)
+        pred = model(data)
+        loss = criterion(pred, target)
         loss.backward()
         optimizer.step()
         duration = time.time() - stime
         print('Epochs: [%d][%d/%d]\tTime: %.3f \tLoss: %2.3f' % (epoch, i+1, batches, duration, loss))
         stime += duration
-        board.scalar_summary('train_loss', loss.data, epoch * batches + i + 1)
+        
+        losses.append(loss.data[0])
+        targets = torch.cat((targets, target.data), 0)
+        preds = torch.cat((preds, pred.data), 0)
+        
+        # board.scalar_summary('train_loss', loss.data, epoch * batches + i + 1)
+    aurocs = compute_aucs(targets, preds)
+    stat['train_auc'][epoch] = np.mean(aurocs)
+    stat['train_loss'][epoch] = np.mean(losses)
+    
         
 
-def validate(model, dataloader, criterion):
+def validate(model, dataloader, criterion, epoch, stat):
     model.eval()
     losses = []
     targets = torch.FloatTensor().cuda()
@@ -119,8 +149,12 @@ def validate(model, dataloader, criterion):
         targets = torch.cat((targets, target.data), 0)
         preds = torch.cat((preds, pred.data), 0)
     aurocs = compute_aucs(targets, preds)
-    aurocs_mean = np.array(aurocs).mean()
+    aurocs_mean = np.mean(aurocs)
     print('The average AUROC is %.3f' % aurocs_mean)
+    
+    loss_mean = np.mean(losses)
+    stat['val_loss'][epoch] = loss_mean
+    stat['val_auc'][epoch] = aurocs_mean
     return np.mean(losses), aurocs_mean
 
 def parse_arguments(argv):

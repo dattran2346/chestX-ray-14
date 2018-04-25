@@ -13,9 +13,7 @@ class DenseNet121(nn.Module):
         )
         
     def forward(self, x):
-        #print('\tForward')
-        x = self.densenet121(x)
-        return x
+        return self.densenet121(x)
         
     def extract(self, x):
         if self.extractor is None:
