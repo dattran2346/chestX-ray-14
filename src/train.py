@@ -18,16 +18,16 @@ import h5py
 
 def main(args):
     print(args)
-    network = importlib.import_module(args.model_def)
-    architect = network.architect
+    network = importlib.import_module(args.model_architect)
     # TODO: maybe get subdir from args, (in checkpoint mode)
+    architect = network.architect
     subdir = datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S')
     print('Model name %s' % subdir)
-    model_dir = '%s/%s/%s' % (args.models_base_dir, architect, subdir)
-    log_dir = '%s/%s/%s' % (args.logs_base_dir, architect, subdir)
+    model_dir = '%s/%s/%s/%s' % (args.models_base_dir, architect, args.model_variant, subdir)
+    log_dir = '%s/%s/%s/%s' % (args.logs_base_dir, architect, args.model_variant, subdir)
     print('Model dir', model_dir)
     print('Log dir', log_dir)
-    
+
     # check and create dir if not existed
     dirs = [model_dir, log_dir]
     for d in dirs:
@@ -49,14 +49,14 @@ def main(args):
     # checkpoint = 
     
     # init training
-    net = network.build()
+    net = network.build(args.model_variant)
     parallel_net = torch.nn.DataParallel(net, device_ids=[0]).cuda()
     optimizer = get_optimizer(parallel_net, args)
     
     # TODO: Try different loss function
     criterion = nn.BCELoss()
     
-    # TODO: Try different scheduler
+    # TODO: Try scheduler that decrease slower?
     scheduler = ReduceLROnPlateau(optimizer, factor=0.1, patience=5, mode='min')
     
     # Get data loader
@@ -66,7 +66,9 @@ def main(args):
     
     # start training
     batches = min(args.epoch_size, len(train_loader))
-    loss_min = float('inf')
+    best_dict = {
+        'best_loss': float('inf')
+    }
     # TODO: Add checkpoint
     for e in range(args.max_nrof_epochs):
         # train
@@ -77,21 +79,26 @@ def main(args):
         scheduler.step(loss_val)
 
         # save best model
-        if loss_val < loss_min:
-            loss_min = loss_val
-            torch.save({
+        if loss_val < best_dict['best_loss']:
+            best_dict = {
                 'epoch': e+1,
-                'state_dict': parallel_net.state_dict(),
-                'best_loss': loss_min,
+                'state_dict': net.state_dict(),
+                'best_loss': loss_val,
                 'aurocs_mean': aurocs_mean,
                 'optimizer': optimizer.state_dict()
-            }, model)
+            }
+            torch.save(best_dict, model)
         
         # save stat
         with h5py.File(stat_file, 'w') as f:
             for key, value in stat.items():
                 f.create_dataset(key, data=value)
-                
+    
+    print('='*40)
+    print('At epoch:', best_dict['epoch'])
+    print('Min loss:', best_dict['best_loss'])
+    print('Best AUC:', best_dict['aurocs_mean'])
+    print('='*40)
     print('Model name %s' % subdir)
     print('Args', args)
     
@@ -186,8 +193,10 @@ def parse_arguments(argv):
         help='Directory where to write event logs.', default=LOG_DIR)
     parser.add_argument('--models_base_dir', type=str,
         help='Directory where to write trained models and checkpoints.', default=MODEL_DIR)
-    parser.add_argument('--model_def', type=str,
-        help='Directory where to write trained models and checkpoints.', default='models.densenet121')
+    parser.add_argument('--model_architect', type=str,
+        help='Which architect to use', default='models.densenet')
+    parser.add_argument('--model_variant', type=str,
+        help='Variant of model, base on pretrainmodels', default='densenet121')
     
     # train process args
     parser.add_argument('--max_nrof_epochs', type=int,
