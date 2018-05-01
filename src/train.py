@@ -49,13 +49,9 @@ def main(args):
     # checkpoint = 
     
     # init training
-    # TODO: Try different architecture
-    # net = DenseNet121(N_CLASSES).cuda()
     net = network.build()
     parallel_net = torch.nn.DataParallel(net, device_ids=[0]).cuda()
-    
-    # TODO: Try different optimizer
-    optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999))
+    optimizer = get_optimizer(parallel_net, args)
     
     # TODO: Try different loss function
     criterion = nn.BCELoss()
@@ -157,6 +153,31 @@ def validate(model, dataloader, criterion, epoch, stat):
     stat['val_auc'][epoch] = aurocs_mean
     return np.mean(losses), aurocs_mean
 
+
+def get_optimizer(net, args):
+    optim_name = args.optimizer
+    lr = args.learning_rate
+    if optim_name == 'ADAGRAD':
+        # Adaptive Subgradient Methods for Online Learning and Stochastic Optimizatio
+        optimizer = optim.Adagrad(net.parameters(), lr=lr, lr_decay=0, weight_decay=0)
+    elif optim_name == 'ADADELTA':
+        # ADADELTA: An Adaptive Learning Rate Method
+        optimizer = optim.Adadelta(net.parameters(), lr=lr, rho=0.9, eps=1e-06, weight_decay=0)
+    elif optim_name == 'ADAM':
+        # Adam: A Method for Stochastic Optimization
+        optimizer = optim.Adam(net.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+    elif optim_name == 'RMSPROP':
+        '''
+        Proposed by G. Hinton in his
+        `course <http://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf>
+        '''
+        optimizer = optim.RMSprop(net.parameters(), lr=lr, alpha=0.99, eps=1e-08, weight_decay=0, momentum=0)
+    else:
+        raise ValueError('Invalid optimization algorithm')
+    return optimizer
+        
+    
+
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     
@@ -168,13 +189,19 @@ def parse_arguments(argv):
     parser.add_argument('--model_def', type=str,
         help='Directory where to write trained models and checkpoints.', default='models.densenet121')
     
-    # train args
+    # train process args
     parser.add_argument('--max_nrof_epochs', type=int,
         help='Number of epochs to run.', default=EPOCHS)
     parser.add_argument('--epoch_size', type=int,
         help='Number of batches per epoch.', default=BATCHES)
     parser.add_argument('--batch_size', type=int,
         help='Number of images to process in a batch.', default=BATCHSIZE)
+    
+    # train args
+    parser.add_argument('--optimizer', type=str, choices=['ADAGRAD', 'ADADELTA', 'ADAM', 'RMSPROP', 'MOM'],
+        help='The optimization algorithm to use', default='ADAM')
+    parser.add_argument('--learning_rate', type=float,
+        help='Initial learning rate.', default=0.001)
     
     # dataset args
     parser.add_argument('--train_csv', type=str,
@@ -183,6 +210,8 @@ def parse_arguments(argv):
         help='List of image to validate in csv format', default=CHEXNET_VAL_CSV)
     parser.add_argument('--agumented',
         help='Agumented validate data', action='store_true')
+    
+    # 
     
     return parser.parse_args(argv)
     
