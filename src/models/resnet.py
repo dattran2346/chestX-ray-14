@@ -18,8 +18,7 @@ class Resnet(nn.Module):
             ('layer1', model.layer1),
             ('layer2', model.layer2),
             ('layer3', model.layer3),
-            ('layer4', model.layer4),
-            ('avgpoll', model.avgpool)
+            ('layer4', model.layer4)
         ]))
         num_ftrs = model.last_linear.in_features
         self.classifier = nn.Sequential(

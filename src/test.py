@@ -31,7 +31,7 @@ def test(model, dataloader, args):
     targets = targets.cuda()
     preds = torch.FloatTensor()
     preds = preds.cuda()
-    # stat = TestStat(args.model_name)
+    stat = TestStat(args.model_name)
     
     for data, target in dataloader:
         target = target.cuda()
@@ -50,7 +50,7 @@ def test(model, dataloader, args):
     print('The average AUROC is {0:.3f}'.format(aurocs_avg))
     for i in range(N_CLASSES):
         print('The AUROC of {} is {}'.format(CLASS_NAMES[i], aurocs[i]))
-    # stat.stat(aurocs)
+    stat.stat(aurocs)
 
     
 def parse_arguments(argv):
