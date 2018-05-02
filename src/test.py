@@ -7,6 +7,7 @@ import numpy as np
 import argparse
 import sys
 import importlib
+from models.densenet121 import DenseNet121
 
 
 def main(args):
@@ -15,7 +16,7 @@ def main(args):
     architect = network.architect
     model_name = '%s/%s/%s/%s/model.path.tar' % (args.models_base_dir, architect, args.model_variant, args.model_name)
     net = network.build(args.model_variant)
-    parallel_net = torch.nn.DataParallel(net, device_ids=[0, 1, 2, 3]).cuda()
+    parallel_net = torch.nn.DataParallel(net, device_ids=[0]).cuda()
     
     checkpoint = torch.load(model_name)
     print('Best loss', checkpoint['best_loss'])

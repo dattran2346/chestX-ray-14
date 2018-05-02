@@ -27,6 +27,7 @@ def test_dataloader(image_list_file='test_list.csv', percentage=PERCENTAGE, agum
         # base on https://github.com/arnoweng/CheXNet/blob/master/model.py
         transform = transforms.Compose([
             transforms.Resize(256),
+            # transforms.Resize(586),
             transforms.TenCrop(WIDTH),
             transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
             transforms.Lambda(lambda crops: torch.stack([normalize(crop) for crop in crops]))
