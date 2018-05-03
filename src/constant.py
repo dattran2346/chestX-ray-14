@@ -1,6 +1,7 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4, 6"
+DEVICE_IDS = [0, 1]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(current_dir, os.path.pardir))
 
@@ -9,15 +10,14 @@ CLASS_NAMES = [ 'Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass
                 'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural Thickening', 'Hernia']
 # WIDTH = 512 
 # HEIGHT = 512 
-WIDTH = 224
-HEIGHT = 224
-CHANNELS = 3
-EPOCHS = 500
-BATCHES = 1000
+# WIDTH = 224
+# HEIGHT = 224
+# CHANNELS = 3
+EPOCHS = 100
+BATCHES = 500
 BATCHSIZE = 32 #64*2
 VALIDATE_EVERY_N_EPOCHS = 5
-IMAGENET_RGB_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_RGB_SD = [0.229, 0.224, 0.225]
+SCALE_FACTOR = .875
 DATA_DIR = '/home/dattran/data/xray/'
 PERCENTAGE = 0.01 # percentage of data use for quick run
 TEST_AGUMENTED = True

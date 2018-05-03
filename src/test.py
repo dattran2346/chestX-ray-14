@@ -16,13 +16,13 @@ def main(args):
     architect = network.architect
     model_name = '%s/%s/%s/%s/model.path.tar' % (args.models_base_dir, architect, args.model_variant, args.model_name)
     net = network.build(args.model_variant)
-    parallel_net = torch.nn.DataParallel(net, device_ids=[0]).cuda()
+    parallel_net = torch.nn.DataParallel(net, device_ids=DEVICE_IDS).cuda()
     
     checkpoint = torch.load(model_name)
     print('Best loss', checkpoint['best_loss'])
     print('AUC', checkpoint['aurocs_mean'])
     net.load_state_dict(checkpoint['state_dict'])
-    test_loader = test_dataloader(image_list_file=args.test_csv, percentage=args.percentage, agumented=args.agumented)
+    test_loader = test_dataloader(net, image_list_file=args.test_csv, percentage=args.percentage, agumented=args.agumented)
     test(parallel_net, test_loader, args)
 
 

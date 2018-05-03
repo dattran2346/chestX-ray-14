@@ -8,6 +8,8 @@ class DenseNet(nn.Module):
     def __init__(self, variant):
         super(DenseNet, self).__init__()
         assert variant in ['densenet121', 'densenet161', 'densenet201']
+        
+        # load retrain model 
         model = pretrainedmodels.__dict__[variant](num_classes=1000, pretrained='imagenet')
         self.features = model.features
         num_ftrs = model.last_linear.in_features
@@ -15,6 +17,13 @@ class DenseNet(nn.Module):
             nn.Linear(num_ftrs, 14),
             nn.Sigmoid()
         )
+        
+        # load other info
+        self.mean = model.mean
+        self.std = model.std
+        self.input_size = model.input_size[1] # assume every input is a square image
+        self.input_range = model.input_range
+        self.input_space = model.input_space
         
     def forward(self, x):
         x = self.features(x) # 1x1024x7x7

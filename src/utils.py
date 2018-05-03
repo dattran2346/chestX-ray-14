@@ -4,40 +4,48 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
+import math
+from pretrainedmodels.utils import ToRange255, ToSpaceBGR
 
-def train_dataloader(image_list_file='train_val_list.csv', percentage=PERCENTAGE):
+def train_dataloader(model, image_list_file='train_val_list.csv', percentage=PERCENTAGE):
     # TODO: Implement kFold for train test split
-    normalize = transforms.Normalize(IMAGENET_RGB_MEAN, IMAGENET_RGB_SD)
-    transform = transforms.Compose([
-        transforms.Resize(264),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomResizedCrop(size=WIDTH),
-        transforms.ColorJitter(0.15, 0.15),
-        transforms.RandomRotation(15),
-        transforms.ToTensor(),
-        normalize
-    ])
+    tfs = []
+    tfs.append(transforms.Resize(int(math.floor(model.input_size / SCALE_FACTOR))))
+    tfs.append(transforms.RandomHorizontalFlip())
+    tfs.append(transforms.RandomResizedCrop(size=model.input_size))
+    tfs.append(transforms.ColorJitter(0.15, 0.15))
+    tfs.append(transforms.RandomRotation(15))
+    tfs.append(transforms.ToTensor())
+    tfs.append(ToSpaceBGR(model.input_space=='RGB'))
+    tfs.append(ToRange255(max(model.input_range)==255))
+    tfs.append(transforms.Normalize(model.mean, model.std))
+    transform = transforms.Compose(tfs)
     dataset = XrayDataset(image_list_file, transform, percentage)
     return DataLoader(dataset=dataset, batch_size=BATCHSIZE,
                       shuffle=True, num_workers=4, pin_memory=False)
 
-def test_dataloader(image_list_file='test_list.csv', percentage=PERCENTAGE, agumented=TEST_AGUMENTED):
-    normalize = transforms.Normalize(IMAGENET_RGB_MEAN, IMAGENET_RGB_SD)
+def test_dataloader(model, image_list_file='test_list.csv', percentage=PERCENTAGE, agumented=TEST_AGUMENTED):
+    normalize = transforms.Normalize(model.mean, model.std)
+    toSpaceRGB = ToSpaceBGR(model.input_space=='RGB')
+    toRange255 = ToRange255(max(model.input_range)==255)
+    toTensor = transforms.ToTensor()
+    tfs = []
     if agumented:
+
         # base on https://github.com/arnoweng/CheXNet/blob/master/model.py
-        transform = transforms.Compose([
-            transforms.Resize(256),
-            # transforms.Resize(586),
-            transforms.TenCrop(WIDTH),
-            transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
-            transforms.Lambda(lambda crops: torch.stack([normalize(crop) for crop in crops]))
-        ])
+        tfs.append(transforms.Resize(int(math.floor(model.input_size / SCALE_FACTOR))))
+        tfs.append(transforms.TenCrop(size=model.input_size))
+        tfs.append(transforms.Lambda(lambda crops: torch.stack([toTensor(crop) for crop in crops])))
+        tfs.append(transforms.Lambda(lambda crops: torch.stack([toSpaceRGB(crop) for crop in crops])))
+        tfs.append(transforms.Lambda(lambda crops: torch.stack([toRange255(crop) for crop in crops])))
+        tfs.append(transforms.Lambda(lambda crops: torch.stack([normalize(crop) for crop in crops])))
     else:
-        transform = transforms.Compose([
-            transforms.Resize(WIDTH),
-            transforms.ToTensor(),
-            normalize
-        ])
+        tfs.append(transforms.Resize(size=model.input_size))
+        tfs.append(toTensor)
+        tfs.append(toSpaceRGB)
+        tfs.append(toRange255)
+        tfs.append(normalize)
+    transform =  transforms.Compose(tfs)
     dataset = XrayDataset(image_list_file, transform, percentage)
     return DataLoader(dataset=dataset, batch_size=2*BATCHSIZE,
                       shuffle=False, num_workers=8, pin_memory=False)

@@ -50,7 +50,7 @@ def main(args):
     
     # init training
     net = network.build(args.model_variant)
-    parallel_net = torch.nn.DataParallel(net, device_ids=[0]).cuda()
+    parallel_net = torch.nn.DataParallel(net, device_ids=DEVICE_IDS).cuda()
     optimizer = get_optimizer(parallel_net, args)
     
     # TODO: Try different loss function
@@ -60,9 +60,9 @@ def main(args):
     scheduler = ReduceLROnPlateau(optimizer, factor=0.1, patience=5, mode='min')
     
     # Get data loader
-    train_loader = train_dataloader(image_list_file=args.train_csv, percentage=1)
+    train_loader = train_dataloader(net, image_list_file=args.train_csv, percentage=1)
     # auc need sufficient large amount of either class to make sense, -> always load all here
-    valid_loader = test_dataloader(image_list_file=args.val_csv, percentage=1, agumented=args.agumented)
+    valid_loader = test_dataloader(net, image_list_file=args.val_csv, percentage=1, agumented=args.agumented)
     
     # start training
     batches = min(args.epoch_size, len(train_loader))
