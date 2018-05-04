@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = "4, 6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6, 7"
 DEVICE_IDS = [0, 1]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(current_dir, os.path.pardir))

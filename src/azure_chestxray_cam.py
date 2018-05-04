@@ -55,7 +55,7 @@ def process_cam_image(crt_cam_image, xray_image, crt_alpha = .5):
     
     blended_image = cv2.addWeighted(xray_image.astype('uint8'),crt_alpha,\
                                     crt_cam_image.astype('uint8'),(1-crt_alpha),0)
-    return(blended_image)
+    return blended_image
 
 def plot_cam_results(crt_blended_image, crt_cam_image, crt_xray_image, map_caption):
     import matplotlib.pyplot as plt
