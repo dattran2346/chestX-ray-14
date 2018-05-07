@@ -7,7 +7,6 @@ import numpy as np
 import argparse
 import sys
 import importlib
-from models.densenet121 import DenseNet121
 
 
 def main(args):

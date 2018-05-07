@@ -3,6 +3,8 @@ import torch.nn as nn
 import pretrainedmodels
 import torch.nn.functional as F
 from collections import OrderedDict
+from constant import SCALE_FACTOR
+import math
 
 class Resnet(nn.Module):
     
@@ -35,6 +37,7 @@ class Resnet(nn.Module):
         self.input_size = model.input_size[1] # assume every input is a square image
         self.input_range = model.input_range
         self.input_space = model.input_space
+        self.resize_size = int(math.floor(self.input_size / SCALE_FACTOR))
         
     def forward(self, x):
         x = self.features(x) # 1x2048x7x7

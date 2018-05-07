@@ -182,7 +182,7 @@ def get_optimizer(net, args):
     else:
         raise ValueError('Invalid optimization algorithm')
     return optimizer
-        
+
     
 
 def parse_arguments(argv):

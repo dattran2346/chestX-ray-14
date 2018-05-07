@@ -6,11 +6,13 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
 import math
 from pretrainedmodels.utils import ToRange255, ToSpaceBGR
+from PIL import ImageOps
 
-def train_dataloader(model, image_list_file='train_val_list.csv', percentage=PERCENTAGE):
+def train_dataloader(model, image_list_file=CHEXNET_TRAIN_CSV, percentage=PERCENTAGE):
     # TODO: Implement kFold for train test split
     tfs = []
-    tfs.append(transforms.Resize(int(math.floor(model.input_size / SCALE_FACTOR))))
+    tfs.append(transforms.Lambda(lambda image: ImageOps.equalize(image))) # equalize histogram 
+    tfs.append(transforms.Resize(model.resize_size))
     tfs.append(transforms.RandomHorizontalFlip())
     tfs.append(transforms.RandomResizedCrop(size=model.input_size))
     tfs.append(transforms.ColorJitter(0.15, 0.15))
@@ -24,16 +26,17 @@ def train_dataloader(model, image_list_file='train_val_list.csv', percentage=PER
     return DataLoader(dataset=dataset, batch_size=BATCHSIZE,
                       shuffle=True, num_workers=4, pin_memory=False)
 
-def test_dataloader(model, image_list_file='test_list.csv', percentage=PERCENTAGE, agumented=TEST_AGUMENTED):
+def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTAGE, agumented=TEST_AGUMENTED):
     normalize = transforms.Normalize(model.mean, model.std)
     toSpaceRGB = ToSpaceBGR(model.input_space=='RGB')
     toRange255 = ToRange255(max(model.input_range)==255)
     toTensor = transforms.ToTensor()
     tfs = []
+    tfs.append(transforms.Lambda(lambda image: ImageOps.equalize(image))) # equalize histogram 
     if agumented:
 
         # base on https://github.com/arnoweng/CheXNet/blob/master/model.py
-        tfs.append(transforms.Resize(int(math.floor(model.input_size / SCALE_FACTOR))))
+        tfs.append(transforms.Resize(model.resize_size))
         tfs.append(transforms.TenCrop(size=model.input_size))
         tfs.append(transforms.Lambda(lambda crops: torch.stack([toTensor(crop) for crop in crops])))
         tfs.append(transforms.Lambda(lambda crops: torch.stack([toSpaceRGB(crop) for crop in crops])))

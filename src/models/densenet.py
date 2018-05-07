@@ -2,6 +2,8 @@ import torchvision
 import torch.nn as nn
 import pretrainedmodels
 import torch.nn.functional as F
+from constant import SCALE_FACTOR
+import math
 
 class DenseNet(nn.Module):
     
@@ -24,7 +26,8 @@ class DenseNet(nn.Module):
         self.input_size = model.input_size[1] # assume every input is a square image
         self.input_range = model.input_range
         self.input_space = model.input_space
-        
+        self.resize_size = int(math.floor(self.input_size / SCALE_FACTOR))
+         
     def forward(self, x):
         x = self.features(x) # 1x1024x7x7
         s = x.size()[3] # 7 if input image is 224x224, 16 if input image is 512x512
@@ -36,6 +39,9 @@ class DenseNet(nn.Module):
         
     def extract(self, x):
         return self.features(x)
+    
+    # def count_params(self):
+    #     return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 def build(variant):
     net = DenseNet(variant).cuda()
