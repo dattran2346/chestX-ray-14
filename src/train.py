@@ -42,7 +42,8 @@ def main(args):
         'train_loss': np.zeros((args.max_nrof_epochs,), np.float32),
         'train_auc': np.zeros((args.max_nrof_epochs,), np.float32),
         'val_loss': np.zeros((args.max_nrof_epochs,), np.float32),
-        'val_auc': np.zeros((args.max_nrof_epochs,), np.float32)
+        'val_auc': np.zeros((args.max_nrof_epochs,), np.float32),
+        'lr': np.zeros((args.max_nrof_epochs), np.float32)
     }
     
     # TODO: load checkpoint model if exist
@@ -77,6 +78,10 @@ def main(args):
         # validate
         loss_val, aurocs_mean = validate(parallel_net, valid_loader, criterion, e, stat)
         scheduler.step(loss_val)
+        
+        # print lr
+        for param_group in optimizer.param_groups:
+            stat['lr'][e] = param_group['lr']
 
         # save best model
         if loss_val < best_dict['best_loss']:

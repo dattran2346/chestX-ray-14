@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 DEVICE_IDS = [0]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(current_dir, os.path.pardir))
@@ -35,3 +35,5 @@ DENSENET121_DIR = '%s/densenet121' % MODEL_DIR
 # stat
 TRAIN_STAT = '%s/train.csv' % STAT_DIR
 TEST_STAT = '%s/test.csv' % STAT_DIR
+
+PREPROCESS = False

@@ -11,7 +11,8 @@ from PIL import ImageOps
 def train_dataloader(model, image_list_file=CHEXNET_TRAIN_CSV, percentage=PERCENTAGE):
     # TODO: Implement kFold for train test split
     tfs = []
-    tfs.append(transforms.Lambda(lambda image: ImageOps.equalize(image))) # equalize histogram 
+    if PREPROCESS:
+        tfs.append(transforms.Lambda(lambda image: ImageOps.equalize(image))) # equalize histogram 
     tfs.append(transforms.Resize(model.resize_size))
     tfs.append(transforms.RandomHorizontalFlip())
     tfs.append(transforms.RandomResizedCrop(size=model.input_size))
@@ -32,7 +33,8 @@ def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTA
     toRange255 = ToRange255(max(model.input_range)==255)
     toTensor = transforms.ToTensor()
     tfs = []
-    tfs.append(transforms.Lambda(lambda image: ImageOps.equalize(image))) # equalize histogram 
+    if PREPROCESS:
+        tfs.append(transforms.Lambda(lambda image: ImageOps.equalize(image))) # equalize histogram 
     if agumented:
 
         # base on https://github.com/arnoweng/CheXNet/blob/master/model.py
