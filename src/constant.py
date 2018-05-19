@@ -28,6 +28,9 @@ CHEXNET_MODEL_NAME = '%s/chexnet_densenet.pth.tar' % MODEL_DIR
 CHEXNET_TRAIN_CSV = '%s/chexnet_train_list.csv' % CSV_DIR
 CHEXNET_VAL_CSV = '%s/chexnet_val_list.csv' % CSV_DIR
 CHEXNET_TEST_CSV = '%s/chexnet_test_list.csv' % CSV_DIR
+TRAIN_CSV = '%s/train_list.csv' % CSV_DIR
+VAL_CSV = '%s/val_list.csv' % CSV_DIR
+TEST_CSV = '%s/test_list.csv' % CSV_DIR
 
 # different model
 DENSENET121_DIR = '%s/densenet121' % MODEL_DIR

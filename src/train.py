@@ -219,9 +219,9 @@ def parse_arguments(argv):
     
     # dataset args
     parser.add_argument('--train_csv', type=str,
-        help='List of image to train in csv format', default=CHEXNET_TRAIN_CSV)
+        help='List of image to train in csv format', default=TRAIN_CSV)
     parser.add_argument('--val_csv', type=str,
-        help='List of image to validate in csv format', default=CHEXNET_VAL_CSV)
+        help='List of image to validate in csv format', default=VAL_CSV)
     parser.add_argument('--agumented',
         help='Agumented validate data', action='store_true')
     

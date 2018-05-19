@@ -70,7 +70,7 @@ def parse_arguments(argv):
     parser.add_argument('--agumented',
         help='Agumented test data', action='store_true')
     parser.add_argument('--test_csv', type=str,
-        help='List of image to test in csv format', default=CHEXNET_TEST_CSV)
+        help='List of image to test in csv format', default=TEST_CSV)
     parser.add_argument('--percentage', type=float,
         help='Percentage of data to test', default=1.0) # default is test all
     return parser.parse_args(argv)
