@@ -2,8 +2,10 @@ import torchvision
 import torch.nn as nn
 import pretrainedmodels
 import torch.nn.functional as F
+import torch
 from constant import SCALE_FACTOR
 import math
+import pdb
 
 class DenseNet(nn.Module):
     
@@ -19,6 +21,8 @@ class DenseNet(nn.Module):
             nn.Linear(num_ftrs, 14),
             nn.Sigmoid()
         )
+        # TODO: BCELoss with logit for numeric stable
+        # self.classifier = nn.Linear(num_ftrs, 14)
         
         # load other info
         self.mean = model.mean
@@ -28,12 +32,29 @@ class DenseNet(nn.Module):
         self.input_space = model.input_space
         self.resize_size = int(math.floor(self.input_size / SCALE_FACTOR))
          
-    def forward(self, x):
+    def forward(self, x, kwargs):
+        # pdb.set_trace()
         x = self.features(x) # 1x1024x7x7
         s = x.size()[3] # 7 if input image is 224x224, 16 if input image is 512x512
         x = F.relu(x, inplace=True) # 1x1024x7x7
-        x = F.avg_pool2d(x, kernel_size=s, stride=1) # 1x1024x1x1
-        x = x.view(x.size(0), -1) # 1x1024
+        
+        pooling = kwargs.pooling
+        # pdb.set_trace()
+        if pooling == 'MAX':
+            x = F.max_pool2d(x, kernel_size=s, stride=1)
+            x = x.view(x.size(0), -1) # 1x1024
+        elif pooling == 'AVG':
+            x = F.avg_pool2d(x, kernel_size=s, stride=1) # 1x1024x1x1
+            x = x.view(x.size(0), -1) # 1x1024
+        elif pooling == 'LSE':
+            r = kwargs.lse_r
+            x_max = F.max_pool2d(x, kernel_size=s, stride=1)
+            p = ((1/r) * torch.log((1 / (s*s)) * torch.exp(r*(x - x_max)).sum(3).sum(2)))
+            x_max = x_max.view(x.size(0), -1)
+            x = x_max + p
+        else:
+            raise ValueError('Invalid pooling')
+        
         x = self.classifier(x) # 1x1000
         return x
         

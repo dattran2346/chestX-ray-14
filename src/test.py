@@ -39,14 +39,21 @@ def test(model, dataloader, args):
             bs, cs, c, h, w = data.size()
             data = data.view(-1, c, h, w)
         data = Variable(data.cuda(), volatile=True)
-        pred = model(data)
+        pred = model(data, args)
         if args.agumented:
             pred = pred.view(bs, cs, -1).mean(1)
         targets = torch.cat((targets, target), 0)
         preds = torch.cat((preds, pred.data), 0)
+    
+    # convert to numpy
+    targets = targets.cpu().numpy()
+    preds = preds.cpu().numpy()
+    
+    # performance metrics
     aurocs = compute_aucs(targets, preds)
     aurocs_avg = np.array(aurocs).mean()
     
+    # report
     print('The average AUROC is {0:.3f}'.format(aurocs_avg))
     for i in range(N_CLASSES):
         print('The AUROC of {} is {}'.format(CLASS_NAMES[i], aurocs[i]))
@@ -73,7 +80,16 @@ def parse_arguments(argv):
         help='List of image to test in csv format', default=TEST_CSV)
     parser.add_argument('--percentage', type=float,
         help='Percentage of data to test', default=1.0) # default is test all
+    
+    # pool
+    parser.add_argument('--pooling', type=str, choices=['MAX', 'AVG', 'LSE'],
+        help='The pooling layer before final fc', default='AVG')
+    parser.add_argument('--lse_r', type=float,
+        help='Hyperparameter r of lse pooling', default='10')
+    
     return parser.parse_args(argv)
+
+    
     
 if __name__ == '__main__':
     #TODO: Add argument parser?, or put in config file

@@ -14,6 +14,7 @@ import argparse
 import sys
 import importlib
 import h5py
+import pdb
 
 
 def main(args):
@@ -56,14 +57,15 @@ def main(args):
     
     # TODO: Try different loss function
     criterion = nn.BCELoss()
+    # criterion = nn.BCEWithLogitsLoss()
     
     # TODO: Try scheduler that decrease slower?
     scheduler = ReduceLROnPlateau(optimizer, factor=0.1, patience=5, mode='min')
     
     # Get data loader
-    train_loader = train_dataloader(net, image_list_file=args.train_csv, percentage=1)
+    train_loader = train_dataloader(net, image_list_file=args.train_csv, percentage=1, batch_size=args.batch_size)
     # auc need sufficient large amount of either class to make sense, -> always load all here
-    valid_loader = test_dataloader(net, image_list_file=args.val_csv, percentage=1, agumented=args.agumented)
+    valid_loader = test_dataloader(net, image_list_file=args.val_csv, percentage=1, batch_size=args.batch_size, agumented=args.agumented)
     
     # start training
     batches = min(args.epoch_size, len(train_loader))
@@ -73,10 +75,10 @@ def main(args):
     # TODO: Add checkpoint
     for e in range(args.max_nrof_epochs):
         # train
-        train(parallel_net, train_loader, optimizer, criterion, e, batches, stat)
+        train(parallel_net, train_loader, optimizer, criterion, e, batches, stat, args)
         
         # validate
-        loss_val, aurocs_mean = validate(parallel_net, valid_loader, criterion, e, stat)
+        loss_val, aurocs_mean = validate(parallel_net, valid_loader, criterion, e, stat, args)
         scheduler.step(loss_val)
         
         # print lr
@@ -108,7 +110,7 @@ def main(args):
     print('Args', args)
     
 
-def train(model, dataloader, optimizer, criterion, epoch, batches, stat):
+def train(model, dataloader, optimizer, criterion, epoch, batches, stat, args):
     model.train()
     iterator = iter(dataloader)
     stime = time.time()
@@ -123,9 +125,12 @@ def train(model, dataloader, optimizer, criterion, epoch, batches, stat):
         target = Variable(torch.FloatTensor(target).cuda())
         
         optimizer.zero_grad()
-        pred = model(data)
-        loss = criterion(pred, target)
+        pred = model(data, args)
+        
+        # train with weighted loss
+        loss = loss_func(criterion, pred, target, args)
         loss.backward()
+        
         optimizer.step()
         duration = time.time() - stime
         print('Epochs: [%d][%d/%d]\tTime: %.3f \tLoss: %2.3f' % (epoch, i+1, batches, duration, loss))
@@ -142,7 +147,7 @@ def train(model, dataloader, optimizer, criterion, epoch, batches, stat):
     
         
 
-def validate(model, dataloader, criterion, epoch, stat):
+def validate(model, dataloader, criterion, epoch, stat, args):
     model.eval()
     losses = []
     targets = torch.FloatTensor().cuda()
@@ -151,8 +156,8 @@ def validate(model, dataloader, criterion, epoch, stat):
     for data, target in dataloader:
         data = Variable(torch.FloatTensor(data).cuda(), volatile=True)
         target = Variable(torch.FloatTensor(target).cuda(), volatile=True)
-        pred = model(data)
-        loss = criterion(pred, target)
+        pred = model(data, args)
+        loss = loss_func(criterion, pred, target, args)
         losses.append(loss.data[0])
         targets = torch.cat((targets, target.data), 0)
         preds = torch.cat((preds, pred.data), 0)
@@ -165,6 +170,21 @@ def validate(model, dataloader, criterion, epoch, stat):
     stat['val_auc'][epoch] = aurocs_mean
     return np.mean(losses), aurocs_mean
 
+def loss_func(criterion, pred, target, args):
+    if args.loss == 'WBCE':
+        # update weight
+        y = target.cpu().data.numpy()
+        y_hat = pred.cpu().data.numpy()
+        P = np.count_nonzero(y == 1)
+        N = np.count_nonzero(y == 0)
+        beta_p = (P + N) / (P + 1) # may not contain disease 
+        beta_n = (P + N) / N 
+        w = np.empty(y.shape)
+        w[y==0] = beta_n
+        w[y==1] = beta_p
+        w = torch.FloatTensor(w).cuda()
+        criterion.weight = w
+    return criterion(pred, target)
 
 def get_optimizer(net, args):
     optim_name = args.optimizer
@@ -216,6 +236,12 @@ def parse_arguments(argv):
         help='The optimization algorithm to use', default='ADAM')
     parser.add_argument('--learning_rate', type=float,
         help='Initial learning rate.', default=0.001)
+    parser.add_argument('--pooling', type=str, choices=['MAX', 'AVG', 'LSE'],
+        help='The pooling layer before final fc', default='AVG')
+    parser.add_argument('--lse_r', type=float,
+        help='Hyperparameter r of lse pooling', default='10')
+    parser.add_argument('--loss', type=str, choices=['BCE', 'WBCE'],
+        help='What loss function to use', default='BCE')
     
     # dataset args
     parser.add_argument('--train_csv', type=str,
@@ -224,8 +250,6 @@ def parse_arguments(argv):
         help='List of image to validate in csv format', default=VAL_CSV)
     parser.add_argument('--agumented',
         help='Agumented validate data', action='store_true')
-    
-    # 
     
     return parser.parse_args(argv)
     

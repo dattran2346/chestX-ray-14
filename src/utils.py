@@ -8,7 +8,7 @@ import math
 from pretrainedmodels.utils import ToRange255, ToSpaceBGR
 from PIL import ImageOps
 
-def train_dataloader(model, image_list_file=CHEXNET_TRAIN_CSV, percentage=PERCENTAGE):
+def train_dataloader(model, image_list_file=CHEXNET_TRAIN_CSV, percentage=PERCENTAGE, batch_size=BATCHSIZE):
     # TODO: Implement kFold for train test split
     tfs = []
     if PREPROCESS:
@@ -24,10 +24,10 @@ def train_dataloader(model, image_list_file=CHEXNET_TRAIN_CSV, percentage=PERCEN
     tfs.append(transforms.Normalize(model.mean, model.std))
     transform = transforms.Compose(tfs)
     dataset = XrayDataset(image_list_file, transform, percentage)
-    return DataLoader(dataset=dataset, batch_size=BATCHSIZE,
+    return DataLoader(dataset=dataset, batch_size=batch_size,
                       shuffle=True, num_workers=4, pin_memory=False)
 
-def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTAGE, agumented=TEST_AGUMENTED):
+def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTAGE, batch_size=BATCHSIZE, agumented=TEST_AGUMENTED):
     normalize = transforms.Normalize(model.mean, model.std)
     toSpaceRGB = ToSpaceBGR(model.input_space=='RGB')
     toRange255 = ToRange255(max(model.input_range)==255)
@@ -52,15 +52,11 @@ def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTA
         tfs.append(normalize)
     transform =  transforms.Compose(tfs)
     dataset = XrayDataset(image_list_file, transform, percentage)
-    return DataLoader(dataset=dataset, batch_size=2*BATCHSIZE,
+    return DataLoader(dataset=dataset, batch_size=2*batch_size,
                       shuffle=False, num_workers=8, pin_memory=False)
 
 def compute_aucs(targets, preds):
     aurocs = []
-    targets = targets.cpu().numpy()
-    preds = preds.cpu().numpy()
     for i in range(N_CLASSES):
         aurocs.append(roc_auc_score(targets[:, i], preds[:, i]))
     return aurocs
-
-#def plot_cam_results(crt)
