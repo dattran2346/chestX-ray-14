@@ -81,7 +81,7 @@ class CAMGenerator(object):
     def _activation_map(feature_conv, weight_softmax, disease_index):
         # generate the class activation maps upsample to 256x256
         size_upsample = (256, 256)
-        bz, nc, h, w = feature_conv.shape
+        bz, nc, h, w = feature_conv.shape # 1x1024xhxw
 
         # cam = weight_softmax[disease_index].dot(feature_conv.reshape((nc, h*w)))
         # cam = cam.reshape(h, w)
