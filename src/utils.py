@@ -25,9 +25,10 @@ def train_dataloader(model, image_list_file=CHEXNET_TRAIN_CSV, percentage=PERCEN
     transform = transforms.Compose(tfs)
     dataset = XrayDataset(image_list_file, transform, percentage)
     return DataLoader(dataset=dataset, batch_size=batch_size,
-                      shuffle=True, num_workers=4, pin_memory=False)
+                      shuffle=True, num_workers=3, pin_memory=False)
 
-def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTAGE, batch_size=BATCHSIZE, agumented=TEST_AGUMENTED):
+# test_dataloader applied ten crop to validate dataset, but here we dont have sufficient memory to do so, so not use iot
+def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTAGE, batch_size=BATCHSIZE):
     normalize = transforms.Normalize(model.mean, model.std)
     toSpaceRGB = ToSpaceBGR(model.input_space=='RGB')
     toRange255 = ToRange255(max(model.input_range)==255)
@@ -35,25 +36,17 @@ def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTA
     tfs = []
     if PREPROCESS:
         tfs.append(transforms.Lambda(lambda image: ImageOps.equalize(image))) # equalize histogram 
-    if agumented:
 
-        # base on https://github.com/arnoweng/CheXNet/blob/master/model.py
-        tfs.append(transforms.Resize(model.resize_size))
-        tfs.append(transforms.TenCrop(size=model.input_size))
-        tfs.append(transforms.Lambda(lambda crops: torch.stack([toTensor(crop) for crop in crops])))
-        tfs.append(transforms.Lambda(lambda crops: torch.stack([toSpaceRGB(crop) for crop in crops])))
-        tfs.append(transforms.Lambda(lambda crops: torch.stack([toRange255(crop) for crop in crops])))
-        tfs.append(transforms.Lambda(lambda crops: torch.stack([normalize(crop) for crop in crops])))
-    else:
-        tfs.append(transforms.Resize(size=model.input_size))
-        tfs.append(toTensor)
-        tfs.append(toSpaceRGB)
-        tfs.append(toRange255)
-        tfs.append(normalize)
+    tfs.append(transforms.Resize(size=model.input_size))
+    tfs.append(toTensor)
+    tfs.append(toSpaceRGB)
+    tfs.append(toRange255)
+    tfs.append(normalize)
+    
     transform =  transforms.Compose(tfs)
     dataset = XrayDataset(image_list_file, transform, percentage)
-    return DataLoader(dataset=dataset, batch_size=2*batch_size,
-                      shuffle=False, num_workers=8, pin_memory=False)
+    return DataLoader(dataset=dataset, batch_size=batch_size,
+                      shuffle=False, num_workers=3, pin_memory=False)
 
 def compute_aucs(targets, preds):
     aurocs = []

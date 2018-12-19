@@ -13,6 +13,7 @@ class CAMGenerator(object):
         
         # init model
         network = importlib.import_module(architecture)
+        print('Network')
         self.model = network.build(variant)
         model_file = '%s/%s/%s/%s/model.path.tar' % (MODEL_DIR, network.architect, variant, model_name)
         checkpoint = torch.load(model_file)
@@ -20,7 +21,7 @@ class CAMGenerator(object):
         self.model.eval()
         self.weights = list(self.model.classifier.parameters())[0].cpu().data.numpy()
         
-        # init transforms, use 10 crop?
+        # init transforms, use 10 crop? No
         normalize = transforms.Normalize(self.model.mean, self.model.std)
         tfs = []
         tfs.append(transforms.Resize(self.model.input_size))
@@ -44,11 +45,12 @@ class CAMGenerator(object):
         feature = self.model.extract(input_).cpu().data.numpy()
         # bz, nc, h, w = feature.shape
         # feature = feature.reshape((nc, h*w))
-        probs = self.model(input_).cpu().data.numpy().squeeze()
+        probs = self.model(input_, pooling='AVG')
+        probs = probs.cpu().data.numpy().squeeze()
         disease_ids = np.where(probs > 0.1)[0]
         diseases = np.array(CLASS_NAMES)[disease_ids]
         
-        print('Sum', np.sum(probs))
+
         # no disease
         if len(disease_ids) == 0:
             return cv_image, 'NORMAL'

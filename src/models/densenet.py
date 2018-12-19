@@ -32,12 +32,12 @@ class DenseNet(nn.Module):
         self.input_space = model.input_space
         self.resize_size = int(math.floor(self.input_size / SCALE_FACTOR))
          
-    def forward(self, x, kwargs):
+    def forward(self, x, **kwargs):
         x = self.features(x) # 1x1024x7x7
         s = x.size()[3] # 7 if input image is 224x224, 16 if input image is 512x512
         x = F.relu(x, inplace=True) # 1x1024x7x7
         
-        pooling = kwargs.pooling
+        pooling = kwargs['pooling']
         if pooling == 'MAX':
             x = F.max_pool2d(x, kernel_size=s, stride=1)
             x = x.view(x.size(0), -1) # 1x1024

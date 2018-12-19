@@ -1,6 +1,6 @@
 from utils import *
 from constant import *
-from tensorboard import Tensorboard
+# from tensorboard import Tensorboard
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -15,10 +15,13 @@ import sys
 import importlib
 import h5py
 import pdb
+from apex import amp
 
 
 def main(args):
     print(args)
+    amp.register_float_function(torch, 'sigmoid')
+    amp_handle = amp.init()
     network = importlib.import_module(args.model_architect)
     # TODO: maybe get subdir from args, (in checkpoint mode)
     architect = network.architect
@@ -38,7 +41,6 @@ def main(args):
     stat_file = '%s/stat.h5' % log_dir
     
     # init logger
-    board = Tensorboard(log_dir)
     stat = {
         'train_loss': np.zeros((args.max_nrof_epochs,), np.float32),
         'train_auc': np.zeros((args.max_nrof_epochs,), np.float32),
@@ -52,8 +54,7 @@ def main(args):
     
     # init training
     net = network.build(args.model_variant)
-    parallel_net = torch.nn.DataParallel(net, device_ids=DEVICE_IDS).cuda()
-    optimizer = get_optimizer(parallel_net, args)
+    optimizer = get_optimizer(net, args)
     
     # TODO: Try different loss function
     criterion = nn.BCELoss()
@@ -65,20 +66,21 @@ def main(args):
     # Get data loader
     train_loader = train_dataloader(net, image_list_file=args.train_csv, percentage=1, batch_size=args.batch_size)
     # auc need sufficient large amount of either class to make sense, -> always load all here
-    valid_loader = test_dataloader(net, image_list_file=args.val_csv, percentage=1, batch_size=args.batch_size, agumented=args.agumented)
+    valid_loader = test_dataloader(net, image_list_file=args.val_csv, percentage=1, batch_size=args.batch_size)
     
     # start training
     batches = min(args.epoch_size, len(train_loader))
     best_dict = {
         'best_loss': float('inf')
     }
+    
     # TODO: Add checkpoint
     for e in range(args.max_nrof_epochs):
         # train
-        train(parallel_net, train_loader, optimizer, criterion, e, batches, stat, args)
+        train(net, train_loader, optimizer, criterion, e, batches, stat, args, amp_handle)
         
         # validate
-        loss_val, aurocs_mean = validate(parallel_net, valid_loader, criterion, e, stat, args)
+        loss_val, aurocs_mean = validate(net, valid_loader, criterion, e, stat, args)
         scheduler.step(loss_val)
         
         # print lr
@@ -110,7 +112,7 @@ def main(args):
     print('Args', args)
     
 
-def train(model, dataloader, optimizer, criterion, epoch, batches, stat, args):
+def train(model, dataloader, optimizer, criterion, epoch, batches, stat, args, amp_handle):
     model.train()
     iterator = iter(dataloader)
     stime = time.time()
@@ -125,23 +127,23 @@ def train(model, dataloader, optimizer, criterion, epoch, batches, stat, args):
         target = Variable(torch.FloatTensor(target).cuda())
         
         optimizer.zero_grad()
-        pred = model(data, args)
+        pred = model(data, pooling=args.pooling)
         
         # train with weighted loss
         loss = loss_func(criterion, pred, target, args)
-        loss.backward()
+        with amp_handle.scale_loss(loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
         
         optimizer.step()
         duration = time.time() - stime
         print('Epochs: [%d][%d/%d]\tTime: %.3f \tLoss: %2.3f' % (epoch, i+1, batches, duration, loss))
         stime += duration
         
-        losses.append(loss.data[0])
+        losses.append(loss.item())
         targets = torch.cat((targets, target.data), 0)
         preds = torch.cat((preds, pred.data), 0)
         
-        # board.scalar_summary('train_loss', loss.data, epoch * batches + i + 1)
-    aurocs = compute_aucs(targets, preds)
+    aurocs = compute_aucs(targets.cpu(), preds.cpu())
     stat['train_auc'][epoch] = np.mean(aurocs)
     stat['train_loss'][epoch] = np.mean(losses)
     
@@ -154,14 +156,14 @@ def validate(model, dataloader, criterion, epoch, stat, args):
     preds = torch.FloatTensor().cuda()
     
     for data, target in dataloader:
-        data = Variable(torch.FloatTensor(data).cuda(), volatile=True)
-        target = Variable(torch.FloatTensor(target).cuda(), volatile=True)
-        pred = model(data, args)
+        data = Variable(torch.FloatTensor(data).cuda())
+        target = Variable(torch.FloatTensor(target).cuda())
+        pred = model(data, pooling=args.pooling)
         loss = loss_func(criterion, pred, target, args)
-        losses.append(loss.data[0])
+        losses.append(loss.item())
         targets = torch.cat((targets, target.data), 0)
         preds = torch.cat((preds, pred.data), 0)
-    aurocs = compute_aucs(targets, preds)
+    aurocs = compute_aucs(targets.cpu(), preds.cpu())
     aurocs_mean = np.mean(aurocs)
     print('The average AUROC is %.3f' % aurocs_mean)
     
@@ -248,8 +250,6 @@ def parse_arguments(argv):
         help='List of image to train in csv format', default=TRAIN_CSV)
     parser.add_argument('--val_csv', type=str,
         help='List of image to validate in csv format', default=VAL_CSV)
-    parser.add_argument('--agumented',
-        help='Agumented validate data', action='store_true')
     
     return parser.parse_args(argv)
     

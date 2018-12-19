@@ -1,25 +1,25 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-DEVICE_IDS = [0]
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# DEVICE_IDS = [0]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(current_dir, os.path.pardir))
 
 N_CLASSES = 14
 CLASS_NAMES = [ 'Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
                 'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural Thickening', 'Hernia']
-EPOCHS = 100
-BATCHES = 500
-BATCHSIZE = 32 #64*2
+EPOCHS = 100# 100
+BATCHES = 500 # 500
+BATCHSIZE = 32
 VALIDATE_EVERY_N_EPOCHS = 5
 SCALE_FACTOR = .875
 DATA_DIR = '/home/dattran/data/xray/'
 PERCENTAGE = 0.01 # percentage of data use for quick run
-TEST_AGUMENTED = True
+TEST_AGUMENTED = False
 DISEASE_THRESHOLD = 0.5
 
-MODEL_DIR = '%s/models' % ROOT
-LOG_DIR = '%s/logs' % ROOT
+MODEL_DIR = '/mnt/data/xray-thesis/models'
+LOG_DIR = 'mnt/data/xray-thesis/logs'
 CSV_DIR = '%s/csv' % ROOT
 STAT_DIR = '%s/stats' % ROOT
 
