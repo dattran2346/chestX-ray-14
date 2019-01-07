@@ -15,6 +15,7 @@ import sys
 import importlib
 import h5py
 import pdb
+from tqdm import tqdm
 from apex import amp
 
 
@@ -56,44 +57,52 @@ def main(args):
     net = network.build(args.model_variant)
     optimizer = get_optimizer(net, args)
     
-    # TODO: Try different loss function
     criterion = nn.BCELoss()
     # criterion = nn.BCEWithLogitsLoss()
     
-    # TODO: Try scheduler that decrease slower?
+    # TODO: Implement cyclic scheduler
     scheduler = ReduceLROnPlateau(optimizer, factor=0.1, patience=5, mode='min')
     
     # Get data loader
-    train_loader = train_dataloader(net, image_list_file=args.train_csv, percentage=1, batch_size=args.batch_size)
+    train_loader = train_dataloader(net, image_list_file=args.train_csv, percentage=0.3, batch_size=args.batch_size)
     # auc need sufficient large amount of either class to make sense, -> always load all here
-    valid_loader = test_dataloader(net, image_list_file=args.val_csv, percentage=1, batch_size=args.batch_size)
+    valid_loader = test_dataloader(net, image_list_file=args.val_csv, percentage=0.3, batch_size=args.batch_size)
     
     # start training
-    batches = min(args.epoch_size, len(train_loader))
     best_dict = {
         'best_loss': float('inf')
     }
     
+    log_lrs, losses = find_lr(net, train_loader, optimizer, criterion, args)
+    print(log_lrs, losses)
+    return
+    
     # TODO: Add checkpoint
-    for e in range(args.max_nrof_epochs):
+    for e in tqdm(range(args.max_nrof_epochs)):
         # train
-        train(net, train_loader, optimizer, criterion, e, batches, stat, args, amp_handle)
+        train_loss, train_auc = train(net, train_loader, optimizer, criterion, e, stat, args, amp_handle)
+#         stat['train_auc'][e] = train_auc
+#         stat['train_loss'][e] = train_loss
         
         # validate
-        loss_val, aurocs_mean = validate(net, valid_loader, criterion, e, stat, args)
-        scheduler.step(loss_val)
+        val_loss, val_auc = validate(net, valid_loader, criterion, e, stat, args)
+#         stat['val_loss'][e] = val_loss
+#         stat['val_auc'][e] = val_auc
+        scheduler.step(val_loss)
+           
+        print(f'Epochs: [{e}/{args.max_nrof_epochs}]\tTrn_Loss: {train_loss} \tVal_Loss:{val_loss} \tAuc: {val_auc}')
         
         # print lr
-        for param_group in optimizer.param_groups:
-            stat['lr'][e] = param_group['lr']
+#         for param_group in optimizer.param_groups:
+#             stat['lr'][e] = param_group['lr']
 
         # save best model
-        if loss_val < best_dict['best_loss']:
+        if val_loss < best_dict['best_loss']:
             best_dict = {
                 'epoch': e+1,
                 'state_dict': net.state_dict(),
-                'best_loss': loss_val,
-                'aurocs_mean': aurocs_mean,
+                'best_loss': val_loss,
+                'val_auc': val_auc,
                 'optimizer': optimizer.state_dict()
             }
             torch.save(best_dict, model)
@@ -106,28 +115,62 @@ def main(args):
     print('='*40)
     print('At epoch:', best_dict['epoch'])
     print('Min loss:', best_dict['best_loss'])
-    print('Best AUC:', best_dict['aurocs_mean'])
+    print('Best AUC:', best_dict['val_auc'])
     print('='*40)
     print('Model name %s' % subdir)
     print('Args', args)
-    
 
-def train(model, dataloader, optimizer, criterion, epoch, batches, stat, args, amp_handle):
+def find_lr(model, dataloader, optimizer, criterion, args, init_value=1e-8, final_value=10., beta=0.98):
+    num = len(dataloader) - 1
+    mult = (final_value / init_value) ** (1/num)
+    lr = init_value
+    optimizer.param_groups[0]['lr'] = lr
+    avg_loss = 0.
+    best_loss = 0.0
+    batch_num = 0
+    losses = []
+    log_lrs = []
+    for image, target in tqdm(dataloader):
+        batch_num += 1
+        image = Variable(torch.FloatTensor(image).cuda())
+        target = Variable(torch.FloatTensor(target).cuda())
+        optimizer.zero_grad()
+        pred = model(image, pooling=args.pooling)
+        loss = loss_func(criterion, pred, target, args)
+        
+        # compute the smoothed loss
+        avg_loss = beta * avg_loss + (1-beta)*loss.item()
+        smoothed_loss = avg_loss / (1-beta**batch_num)
+        
+        # stop if the loss is exploding
+        if batch_num > 10 and smoothed_loss > 4 * best_loss:
+            return log_lrs, losses
+        
+        losses.append(smoothed_loss)
+        log_lrs.append(math.log10(lr))
+        
+        loss.backward()
+        optimizer.step()
+        
+        lr *= mult
+        
+        optimizer.param_groups[0][lr] = lr
+    return log_lrs, losses
+
+def train(model, dataloader, optimizer, criterion, epoch, stat, args, amp_handle):
     model.train()
-    iterator = iter(dataloader)
-    stime = time.time()
-    
+  
     losses = []
     targets = torch.FloatTensor().cuda()
     preds = torch.FloatTensor().cuda()
     
-    for i in range(batches):
-        data, target = iterator.next()
-        data = Variable(torch.FloatTensor(data).cuda())
+    for data in tqdm(dataloader):
+        image, target = data
+        image = Variable(torch.FloatTensor(image).cuda())
         target = Variable(torch.FloatTensor(target).cuda())
         
         optimizer.zero_grad()
-        pred = model(data, pooling=args.pooling)
+        pred = model(image, pooling=args.pooling)
         
         # train with weighted loss
         loss = loss_func(criterion, pred, target, args)
@@ -135,19 +178,13 @@ def train(model, dataloader, optimizer, criterion, epoch, batches, stat, args, a
             scaled_loss.backward()
         
         optimizer.step()
-        duration = time.time() - stime
-        print('Epochs: [%d][%d/%d]\tTime: %.3f \tLoss: %2.3f' % (epoch, i+1, batches, duration, loss))
-        stime += duration
-        
         losses.append(loss.item())
         targets = torch.cat((targets, target.data), 0)
         preds = torch.cat((preds, pred.data), 0)
         
     aurocs = compute_aucs(targets.cpu(), preds.cpu())
-    stat['train_auc'][epoch] = np.mean(aurocs)
-    stat['train_loss'][epoch] = np.mean(losses)
+    return np.mean(losses), np.mean(aurocs)
     
-        
 
 def validate(model, dataloader, criterion, epoch, stat, args):
     model.eval()
@@ -155,21 +192,18 @@ def validate(model, dataloader, criterion, epoch, stat, args):
     targets = torch.FloatTensor().cuda()
     preds = torch.FloatTensor().cuda()
     
-    for data, target in dataloader:
-        data = Variable(torch.FloatTensor(data).cuda())
+    for image, target in tqdm(dataloader):
+        image = Variable(torch.FloatTensor(image).cuda())
         target = Variable(torch.FloatTensor(target).cuda())
-        pred = model(data, pooling=args.pooling)
+        pred = model(image, pooling=args.pooling)
         loss = loss_func(criterion, pred, target, args)
         losses.append(loss.item())
         targets = torch.cat((targets, target.data), 0)
         preds = torch.cat((preds, pred.data), 0)
     aurocs = compute_aucs(targets.cpu(), preds.cpu())
     aurocs_mean = np.mean(aurocs)
-    print('The average AUROC is %.3f' % aurocs_mean)
-    
+   
     loss_mean = np.mean(losses)
-    stat['val_loss'][epoch] = loss_mean
-    stat['val_auc'][epoch] = aurocs_mean
     return np.mean(losses), aurocs_mean
 
 def loss_func(criterion, pred, target, args):
@@ -228,8 +262,8 @@ def parse_arguments(argv):
     # train process args
     parser.add_argument('--max_nrof_epochs', type=int,
         help='Number of epochs to run.', default=EPOCHS)
-    parser.add_argument('--epoch_size', type=int,
-        help='Number of batches per epoch.', default=BATCHES)
+#     parser.add_argument('--epoch_size', type=int,
+#         help='Number of batches per epoch.', default=BATCHES)
     parser.add_argument('--batch_size', type=int,
         help='Number of images to process in a batch.', default=BATCHSIZE)
     

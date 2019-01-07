@@ -48,7 +48,7 @@ def test_dataloader(model, image_list_file=CHEXNET_TEST_CSV, percentage=PERCENTA
     return DataLoader(dataset=dataset, batch_size=batch_size,
                       shuffle=False, num_workers=3, pin_memory=False)
 
-def compute_aucs(targets, preds):
+def aucs(targets, preds):
     aurocs = []
     for i in range(N_CLASSES):
         aurocs.append(roc_auc_score(targets[:, i], preds[:, i]))

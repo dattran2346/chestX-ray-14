@@ -8,12 +8,12 @@ ROOT = os.path.abspath(os.path.join(current_dir, os.path.pardir))
 N_CLASSES = 14
 CLASS_NAMES = [ 'Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
                 'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema', 'Fibrosis', 'Pleural Thickening', 'Hernia']
-EPOCHS = 100# 100
-BATCHES = 500 # 500
+EPOCHS = 2# 100
+# BATCHES = 500 # 500
 BATCHSIZE = 32
 VALIDATE_EVERY_N_EPOCHS = 5
 SCALE_FACTOR = .875
-DATA_DIR = '/home/dattran/data/xray/'
+DATA_DIR = '/mnt/data/xray-thesis/data/chestX-ray14/'
 PERCENTAGE = 0.01 # percentage of data use for quick run
 TEST_AGUMENTED = False
 DISEASE_THRESHOLD = 0.5
