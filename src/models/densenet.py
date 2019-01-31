@@ -8,12 +8,12 @@ import math
 import pdb
 
 class DenseNet(nn.Module):
-    
+
     def __init__(self, variant):
         super(DenseNet, self).__init__()
         assert variant in ['densenet121', 'densenet161', 'densenet201']
-        
-        # load retrain model 
+
+        # load retrain model
         model = pretrainedmodels.__dict__[variant](num_classes=1000, pretrained='imagenet')
         self.features = model.features
         num_ftrs = model.last_linear.in_features
@@ -23,7 +23,7 @@ class DenseNet(nn.Module):
         )
         # TODO: BCELoss with logit for numeric stable
         # self.classifier = nn.Linear(num_ftrs, 14)
-        
+
         # load other info
         self.mean = model.mean
         self.std = model.std
@@ -31,12 +31,12 @@ class DenseNet(nn.Module):
         self.input_range = model.input_range
         self.input_space = model.input_space
         self.resize_size = int(math.floor(self.input_size / SCALE_FACTOR))
-         
+
     def forward(self, x, **kwargs):
         x = self.features(x) # 1x1024x7x7
         s = x.size()[3] # 7 if input image is 224x224, 16 if input image is 512x512
         x = F.relu(x, inplace=True) # 1x1024x7x7
-        
+
         pooling = kwargs['pooling']
         if pooling == 'MAX':
             x = F.max_pool2d(x, kernel_size=s, stride=1)
@@ -52,13 +52,13 @@ class DenseNet(nn.Module):
             x = x_max + p
         else:
             raise ValueError('Invalid pooling')
-        
+
         x = self.classifier(x) # 1x1000
         return x
-        
+
     def extract(self, x):
         return self.features(x)
-    
+
     # def count_params(self):
     #     return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
@@ -67,5 +67,5 @@ def build(variant):
     return net
 
 architect='densenet'
-    
-    
+
+
