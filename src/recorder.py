@@ -1,54 +1,58 @@
 from collections import defaultdict
 import pickle
-import h5py
 from time import time
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+from fastai.sgdr import LossRecorder
 
 
-class LearningRecorder():
+class TrainingRecoder(LossRecorder):
 
-    def __init__(self, path, model_name):
-        self.save_path = path/model_name
-        self.save_path.mkdir(parents=True, exist_ok=True)
+    # This training recoder with save state between training phase
+    def __init__(self, save_path='', record_mom=False):
+        self.layer_opt = None
+        self.save_path, self.record_mom = save_path, record_mom
 
-    def init_log(self):
-        self.metric_dict = defaultdict(lambda: [])
+        # record every iteration
+        self.losses, self.lrs, self.iterations = [], [], []
+        self.epoch = 0
 
-    def on_start(self):
-        self.init_log()
-        self.time_start = time()
+        # record every batch
+        self.epochs = []
+        self.val_losses, self.trn_losses, self.rec_metrics = [], [], [] # save validate
+        self.iteration = 0
 
-    def on_end(self):
-        self.time_elapse = time() - self.time_start
+        self.epoch_losses = []
 
-    def on_epoch_end(self, **metrics):
-        for k, v in metrics.items():
-            self.metric_dict[k].append(v)
+        if self.record_mom:
+            self.momentums = []
 
-    def save(self, name):
-        log = {
-            'time_elapse': self.time_elapse,
-            'epoch_log': dict(self.metric_dict)  # convert to normal dict (lambda is not pickable)
+    def new_phase(self, layer_opt):
+        # call this before every learn.fit_gen to set new layer_opt
+        self.layer_opt = layer_opt
+
+    def on_train_begin(self):
+        pass
+
+    def on_epoch_begin(self):
+        self.epoch += 1
+
+
+    def on_epoch_end(self, metrics):
+        # record trn_loss and reset cache
+        self.trn_losses.append(np.mean(self.epoch_losses))
+        self.epoch_losses = []
+
+        self.save_metrics(metrics) # [val_loss + metrics]
+
+    def on_batch_end(self, loss):
+        self.epoch_losses.append(loss)
+        super().on_batch_end(loss)
+
+    def save(self):
+        stat = {
+            'trn_losses': self.trn_losses,
+            'val_losses': self.val_losses,
+            'metrics': np.stack(self.rec_metrics)
         }
-
-        with open(f'{self.save_path}/{name}.pickle', 'wb') as f:
-            pickle.dump(log, f)
-
-    def load(self, name):
-        with open(f'{self.save_path}/{name}.pickle', 'rb') as f:
-            log = pickle.load(f)
-            self.metric_dict = log['epoch_log']
-
-    def plot(self, metrics):
-        colors = sns.color_palette(n_colors=len(metrics))
-        for metric, c in zip(metrics, colors):
-            trn = self.metric_dict[f'trn_{metric}']
-            val = self.metric_dict[f'val_{metric}']
-            plt.figure()
-            plt.plot(trn, c=c, label='Train')
-            plt.plot(val, c=c, dashes=[6, 2], label='Val')
-            plt.xlabel('Epoch')
-            plt.ylabel(metric)
-            plt.legend()
-
+        with open(self.save_path/'log.pickle', 'wb') as f:
+            pickle.dump(stat, f)

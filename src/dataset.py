@@ -20,7 +20,7 @@ class ChestXray14Dataset(Dataset):
 
     def __getitem__(self, index):
         image_file = self.path/self.image_names[index]
-        image = Image.open(image_file).convert('RGB')
+        image = Image.open(image_file).convert('RGB') # 1 channel image
         label = self.labels[index]
         if self.transform:
             image = self.transform(image)

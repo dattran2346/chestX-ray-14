@@ -4,6 +4,8 @@ from matplotlib import pyplot as plt
 import torch
 import numpy as np
 
+
+# TODO: Implement ReduceOnPlateauScheduler for fastai
 class LRFinder():
 
     def __init__(self, optimizer, start_lr, end_lr, batch_num, linear=False):

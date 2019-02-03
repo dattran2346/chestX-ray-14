@@ -46,6 +46,18 @@ class WeightedBCEWithLogitsLoss(nn.Module):
         w = torch.FloatTensor(w).cuda()
         return w
 
+class SaveFeature:
+    features = None
+
+    def __init__(self, m):
+        self.hook = m.register_forward_hook(self.hook_fn)
+
+    def hook_fn(self, module, input, output):
+        self.features = output
+
+    def remove(self):
+        self.hook.remove()
+
 # class FocalLoss(WeightedBCELoss):
 
 #     def __init__(self, theta=2):

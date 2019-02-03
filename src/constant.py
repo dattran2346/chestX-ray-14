@@ -9,6 +9,10 @@ N_CLASSES = 14
 CLASS_NAMES = [ 'Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass', 'Nodule', 'Pneumonia',
                 'Pneumothorax', 'Consolidation', 'Edema', 'Emphysema',
                 'Fibrosis', 'Pleural Thickening', 'Hernia']
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
 # EPOCHS = 2# 100
 # # BATCHES = 500 # 500
 # BATCHSIZE = 32

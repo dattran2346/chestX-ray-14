@@ -27,7 +27,7 @@ def chest_xray_transfrom(model, size, scale_factor):
             normalize,
         ]),
         transforms.Compose([
-            transforms.Resize(size),
+            transforms.Resize((size, size)),
             toTensor,
             toSpaceBGR,
             toRange255,
