@@ -1,7 +1,7 @@
 import os
-# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-# DEVICE_IDS = [0]
+from pathlib import Path
+
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(current_dir, os.path.pardir))
 
@@ -13,6 +13,16 @@ CLASS_NAMES = [ 'Atelectasis', 'Cardiomegaly', 'Effusion', 'Infiltration', 'Mass
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
+PATH = Path('/home/dattran/data/xray-thesis/chestX-ray14')
+ATTENTION_DN = 'tmp/attention'
+IMAGE_DN = 'images'
+TRAIN_CSV = 'train.csv'
+VAL_CSV = 'val.csv'
+TEST_CSV = 'test.csv'
+
+"""
+Below may not need any more
+"""
 # EPOCHS = 2# 100
 # # BATCHES = 500 # 500
 # BATCHSIZE = 32

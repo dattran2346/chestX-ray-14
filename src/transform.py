@@ -4,14 +4,15 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import math
-from pretrainedmodels.utils import ToRange255, ToSpaceBGR
+# from pretrainedmodels.utils import ToRange255, ToSpaceBGR
 from PIL import ImageOps
+from constant import IMAGENET_MEAN, IMAGENET_STD
 
 
-def chest_xray_transfrom(model, size, scale_factor):
-    normalize = transforms.Normalize(model.mean, model.std)
-    toSpaceBGR = ToSpaceBGR(model.input_space=='BGR')
-    toRange255 = ToRange255(max(model.input_range)==255)
+def chest_xray_transfrom(size, scale_factor):
+    normalize = transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+    # toSpaceBGR = ToSpaceBGR(model.input_space=='BGR')
+    # toRange255 = ToRange255(max(model.input_range)==255)
     toTensor = transforms.ToTensor()
     resize_size = int(math.floor(size / scale_factor))
     return [
@@ -22,15 +23,15 @@ def chest_xray_transfrom(model, size, scale_factor):
             transforms.ColorJitter(0.15, 0.15),
             transforms.RandomRotation(15),
             toTensor,
-            toSpaceBGR,
-            toRange255,
+            # toSpaceBGR,
+            # toRange255,
             normalize,
         ]),
         transforms.Compose([
             transforms.Resize((size, size)),
             toTensor,
-            toSpaceBGR,
-            toRange255,
+            # toSpaceBGR,
+            # toRange255,
             normalize,
         ]),
         # 'test': transforms.Compose([ # Use TTA using five crop
@@ -44,7 +45,7 @@ def chest_xray_transfrom(model, size, scale_factor):
     ]
 
 
-def lung_segmentation_transfrom(model, sz):
+def lung_segmentation_transfrom(sz):
     return [
         (
             transforms.Compose([  # image
@@ -53,7 +54,7 @@ def lung_segmentation_transfrom(model, sz):
                 transforms.ColorJitter(0.15, 0.15),
                 transforms.RandomRotation(30),
                 transforms.ToTensor(),
-                transforms.Normalize(model.mean, model.std)
+                transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
             ]),
             transforms.Compose([  # mask
                 transforms.Resize((sz, sz)),
@@ -67,7 +68,7 @@ def lung_segmentation_transfrom(model, sz):
             transforms.Compose([  # image
                 transforms.Resize((sz, sz)),
                 transforms.ToTensor(),
-                transforms.Normalize(model.mean, model.std)
+                transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
             ]),
             transforms.Compose([  # mask
                 transforms.Resize((sz, sz)),

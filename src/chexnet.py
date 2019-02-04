@@ -13,20 +13,30 @@ class ChexNet(nn.Module):
         super().__init__()
         # chexnet.parameters() is freezed except head
         if trained:
-            self.load_prethesis(model_name)
+            # self.load_prethesis(model_name)
+            self.load_model(model_name)
         else:
             self.load_pretrained()
 
-    def load_prethesis(self, model_name):
-        # load pre-thesis model
-        densenet = DenseNet('densenet121')
-        path = Path('/mnt/data/xray-thesis/models/densenet/densenet121')
-        checkpoint = torch.load(path/model_name/'model.path.tar')
-        densenet.load_state_dict(checkpoint['state_dict'])
-        self.backbone = densenet.features
+    # def load_prethesis(self, model_name):
+    #     # load pre-thesis model
+    #     densenet = DenseNet('densenet121')
+    #     path = Path('/mnt/data/xray-thesis/models/densenet/densenet121')
+    #     checkpoint = torch.load(path/model_name/'model.path.tar')
+    #     densenet.load_state_dict(checkpoint['state_dict'])
+    #     self.backbone = densenet.features
+    #     self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1),
+    #                               Flatten(),
+    #                               children(densenet.classifier)[0])
+
+    def load_model(self, model_name):
+        self.backbone = densenet121(False).features
         self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1),
-                                  Flatten(),
-                                  children(densenet.classifier)[0])
+                                 Flatten(),
+                                 nn.Linear(1024, 14))
+        path = Path('/home/dattran/data/xray-thesis/chestX-ray14/models')
+        state_dict = torch.load(path/model_name/'best.h5')
+        self.load_state_dict(state_dict)
 
     def load_pretrained(self, torch=False):
         if torch:
