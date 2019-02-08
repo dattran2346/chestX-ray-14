@@ -256,8 +256,8 @@ def validate(stepper, dl, metrics, epoch, seq_first=False, validate_skip = 0):
             y = VV(y)
             preds, l = stepper.evaluate(VV(x), y)
             batch_cnts.append(batch_sz(x, seq_first=seq_first))
-            targets.append(y)
-            predicts.append(preds)
+            targets.append(y.cpu()) # not enough cuda memory, so move to cpu
+            predicts.append(preds.cpu())
             loss.append(to_np(l))
 
     predicts = torch.cat(predicts)

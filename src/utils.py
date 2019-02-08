@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from constant import PATH, TRAIN_CSV, VAL_CSV, TEST_CSV
 
 
@@ -10,3 +11,8 @@ def get_chestxray_from_csv():
         labels = df.iloc[:, 1:].values
         result.append((images, labels))
     return result
+
+def sigmoid_np(x):
+    return 1. / (1. + np.exp(-x))
+
+

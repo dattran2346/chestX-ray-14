@@ -9,7 +9,7 @@ from fastai.torch_imports import children
 
 class ChexNet(nn.Module):
 
-    def __init__(self, trained=True, model_name='20180525-222635'):
+    def __init__(self, trained=False, model_name='20180525-222635'):
         super().__init__()
         # chexnet.parameters() is freezed except head
         if trained:

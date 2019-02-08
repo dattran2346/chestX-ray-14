@@ -34,17 +34,20 @@ class ChestXray14Dataset(Dataset):
         # fastai compatible: learn.summary()
         return self.size
 
-class MontgomeryDataset(Dataset):
 
-    def __init__(self, image_path, mask_path, image_names, transform=None):
-        self.image_path = image_path
-        self.mask_path = mask_path
+class LungSegmentationDataset(Dataset):
+
+    def __init__(self, image_names, mask_names, transform, path, size):
         self.image_names = image_names
+        self.mask_names = mask_names
+        self.path = path
         self.transform = transform
+        self.size = size
 
     def __getitem__(self, i):
-        image_file = self.image_path/self.image_names[i]
-        mask_file = self.mask_path/self.image_names[i]
+        image_file = self.path/'images'/self.image_names[i]
+        mask_file = self.path/'masks'/self.mask_names[i]
+
         image = Image.open(image_file).convert('RGB')
         mask = Image.open(mask_file)
 
@@ -59,3 +62,7 @@ class MontgomeryDataset(Dataset):
 
     def __len__(self):
         return len(self.image_names)
+
+    @property
+    def sz(self):
+        return self.size
