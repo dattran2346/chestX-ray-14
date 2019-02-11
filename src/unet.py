@@ -6,33 +6,52 @@ import pretrainedmodels
 from torchvision.models import resnet34, resnet50, resnet101, resnet152
 from fastai.model import cut_model
 from pathlib import Path
+from torchvision.models.resnet import conv3x3, BasicBlock, Bottleneck
 
-class UnetBlock(nn.Module):
+class UpBlock(nn.Module):
+    expansion = 1
 
-    def __init__(self, up_in, x_in, n_out):
+    def __init__(self, inplanes, planes, expansion=1):
         super().__init__()
-        up_out = x_out = n_out // 2 # n_out is concat of up_out and x_out
-        self.x_conv = nn.Conv2d(x_in, x_out, 1) # 1x1 conv
-        self.tr_conv = nn.ConvTranspose2d(up_in, up_out, 2, stride=2)
-        self.bn = nn.BatchNorm2d(n_out)
+        inplanes = inplanes * expansion
+        planes = planes * expansion
+        self.upconv = nn.ConvTranspose2d(inplanes, planes, 2, 2, 0)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv1 = conv3x3(inplanes, planes)
+        self.bn2 = nn.BatchNorm2d(planes)
 
-    def forward(self, up_p, x_p):
-        up_p = self.tr_conv(up_p)
-        x_p = self.x_conv(x_p)
-        cat_p = torch.cat([up_p, x_p], dim=1) # concat along #filter
-        return self.bn(F.relu(cat_p))
+    def forward(self, u, x):
+        up = self.relu(self.bn1(self.upconv(u)))
+        out = torch.cat([x, up], dim=1) # cat along channel
+        out = self.relu(self.bn2(self.conv1(out)))
+        return out
 
+class UpLayer(nn.Module):
+
+    def __init__(self, block, inplanes, planes, blocks):
+        super().__init__()
+        self.up = UpBlock(inplanes, planes, block.expansion)
+        layers = [block(planes*block.expansion, planes) for _ in range(1, blocks)]
+        self.conv = nn.Sequential(*layers)
+
+    def forward(self, u, x):
+        x = self.up(u, x)
+        x = self.conv(x)
+        return x
 
 class Unet(nn.Module):
 
     def __init__(self, trained=False, model_name=None):
         super().__init__()
-
+        self.layers = [3, 4, 6]
+        self.block = Bottleneck
         if trained:
             assert model_name != None
             self.load_model(model_name)
         else:
             self.load_pretrained()
+
 
     def load_model(self, model_name):
         resnet = resnet50(False)
@@ -53,22 +72,29 @@ class Unet(nn.Module):
 
     def init_head(self):
         self.sfs = [SaveFeature(self.backbone[i]) for i in [2, 4, 5, 6]]
-        self.up1 = UnetBlock(512, 256, 256)
-        self.up2 = UnetBlock(256, 128, 256)
-        self.up3 = UnetBlock(256, 64, 256)
-        self.up4 = UnetBlock(256, 64, 256)
-        self.up5 = nn.ConvTranspose2d(256, 1, 2, stride=2)
+        self.up_layer1 = UpLayer(self.block, 512, 256, self.layers[-1])
+        self.up_layer2 = UpLayer(self.block, 256, 128, self.layers[-2])
+        self.up_layer3 = UpLayer(self.block, 128, 64, self.layers[-3])
 
+        self.map = conv3x3(64*self.block.expansion, 64) # 64e -> 64
+        self.conv = conv3x3(128, 64)
+        self.bn_conv = nn.BatchNorm2d(64)
+        self.up_conv = nn.ConvTranspose2d(64, 1, 2, 2, 0)
+        self.bn_up = nn.BatchNorm2d(1)
 
     def forward(self, x):
         x = F.relu(self.backbone(x))
-        x = self.up1(x, self.sfs[3].features)
-        x = self.up2(x, self.sfs[2].features)
-        x = self.up3(x, self.sfs[1].features)
-        x = self.up4(x, self.sfs[0].features)
-        x = self.up5(x)
-#         return x[:,0]
+        x = self.up_layer1(x, self.sfs[3].features)
+        x = self.up_layer2(x, self.sfs[2].features)
+        x = self.up_layer3(x, self.sfs[1].features)
+        x = self.map(x)
+        x = F.interpolate(x, scale_factor=2)
+        x = torch.cat([self.sfs[0].features, x], dim=1)
+        x = F.relu(self.bn_conv(self.conv(x)))
+        x = F.relu(self.bn_up(self.up_conv(x)))
         return x
 
     def close(self):
         for sf in self.sfs: sf.remove()
+
+

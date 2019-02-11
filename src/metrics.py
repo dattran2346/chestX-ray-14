@@ -45,15 +45,14 @@ def dice_np(preds, targets):
     assert targets.max() == 1
     assert targets.min() == 0
 
-    preds = preds > 0
     return np.sum(preds * targets) / np.sum(preds + targets)
 
 def iou(preds, targets):
     assert targets.max().item() == 1
     assert targets.min().item() == 0
 
-    x = (preds > 0.5).type(targets.type())
-    y = targets
+    x = (preds > 0.5).type(torch.ByteTensor)
+    y = targets.type(torch.ByteTensor)
 
     intersect = (x & y).sum().item()
     union = (x | y).sum().item()
