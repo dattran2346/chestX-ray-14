@@ -11,8 +11,6 @@ from constant import IMAGENET_MEAN, IMAGENET_STD
 
 def chest_xray_transfrom(size, scale_factor):
     normalize = transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
-    # toSpaceBGR = ToSpaceBGR(model.input_space=='BGR')
-    # toRange255 = ToRange255(max(model.input_range)==255)
     toTensor = transforms.ToTensor()
     resize_size = int(math.floor(size / scale_factor))
     return [
@@ -23,27 +21,38 @@ def chest_xray_transfrom(size, scale_factor):
             transforms.ColorJitter(0.15, 0.15),
             transforms.RandomRotation(15),
             toTensor,
-            # toSpaceBGR,
-            # toRange255,
             normalize,
         ]),
         transforms.Compose([
             transforms.Resize((size, size)),
             toTensor,
-            # toSpaceBGR,
-            # toRange255,
             normalize,
         ]),
         # 'test': transforms.Compose([ # Use TTA using five crop
         #     transforms.Resize(resize_size),
         #     transforms.FiveCrop(size),
         #     transforms.Lambda(lambda crops: torch.stack([toTensor(crop) for crop in crops])),
-        #     transforms.Lambda(lambda crops: torch.stack([toSpaceBGR(crop) for crop in crops])),
-        #     transforms.Lambda(lambda crops: torch.stack([toRange255(crop) for crop in crops])),
         #     transforms.Lambda(lambda crops: torch.stack([normalize(crop) for crop in crops])),
         # ])
     ]
 
+def tta(resize=None, input_size=224):
+    """
+    case 1: resize to 256 and 5-crop
+    case 2: transfrom segmented image from unet (size 256)
+    """
+    normalize = transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+    toTensor = transforms.ToTensor()
+    tfms = []
+    tfms.append(transforms.Resize(256))
+    tfms.append(transforms.FiveCrop(input_size))
+    # tfms.append(transforms.Resize(size))
+    # tfms.append(toTensor)
+    # tfms.append(normalize)
+    tfms.append(transforms.Lambda(lambda crops: torch.stack([toTensor(crop) for crop in crops])))
+    tfms.append(transforms.Lambda(lambda crops: torch.stack([normalize(crop) for crop in crops])))
+
+    return transforms.Compose(tfms)
 
 def lung_segmentation_transfrom(sz):
     return [

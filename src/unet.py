@@ -7,6 +7,8 @@ from torchvision.models import resnet34, resnet50, resnet101, resnet152
 from fastai.model import cut_model
 from pathlib import Path
 from torchvision.models.resnet import conv3x3, BasicBlock, Bottleneck
+import skimage
+from scipy import ndimage
 
 class UpBlock(nn.Module):
     expansion = 1
@@ -96,5 +98,15 @@ class Unet(nn.Module):
 
     def close(self):
         for sf in self.sfs: sf.remove()
+
+    def bb(self, img):
+        """
+        Crop chest bb from img, (1, 3, 256, 256)
+        """
+        py = torch.sigmoid(self(img))
+        py = (py[0].cpu() > 0.5).type(torch.FloatTensor)
+        labels = skimage.measure.label(py[0].numpy())
+        mask = np.logical_or(labels==2, labels==1).astype(np.float32)
+
 
 

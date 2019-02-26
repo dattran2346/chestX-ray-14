@@ -30,10 +30,11 @@ class HeatmapGenerator:
     def default(self, pred_ys):
         return torch.max(torch.abs(self.sf.features), dim=1)[0]
 
-    def generate(self, images):
+    def generate(self, images, k=1):
         """
         input: tensor (bs, c, h, w)
         output: tensor (bs, h/32, w/32)
+        k: top disease
         """
         py = torch.sigmoid(self.chexnet(images))
         pred_ys = torch.argmax(py, dim=1)
