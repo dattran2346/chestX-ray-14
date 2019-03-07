@@ -4,10 +4,18 @@ from torchvision.models import densenet121
 from models.densenet import DenseNet # old stuff
 from layers import Flatten
 import torch
+import torchvision.transforms as transforms
 from pathlib import Path
 from fastai.torch_imports import children
+from fastai.core import V
+from constant import IMAGENET_MEAN, IMAGENET_STD
 
 class ChexNet(nn.Module):
+    tfm = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+                ])
 
     def __init__(self, trained=False, model_name='20180525-222635'):
         super().__init__()
@@ -52,3 +60,13 @@ class ChexNet(nn.Module):
 
     def forward(self, x):
         return self.head(self.backbone(x))
+
+    def predict(self, image):
+        """
+        input: PIL image (w, h, c)
+        output: prob np.array
+        """
+        image = V(self.tfm(image)[None])
+        py = torch.sigmoid(self(image))
+        prob = py.detach().cpu().numpy()[0]
+        return prob

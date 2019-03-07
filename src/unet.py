@@ -9,6 +9,12 @@ from pathlib import Path
 from torchvision.models.resnet import conv3x3, BasicBlock, Bottleneck
 import skimage
 from scipy import ndimage
+import numpy as np
+import torchvision.transforms as transforms
+import cv2
+from constant import IMAGENET_MEAN, IMAGENET_STD
+from fastai.core import V
+
 
 class UpBlock(nn.Module):
     expansion = 1
@@ -43,6 +49,11 @@ class UpLayer(nn.Module):
         return x
 
 class Unet(nn.Module):
+    tfm = transforms.Compose([
+                transforms.Resize((256, 256)),
+                transforms.ToTensor(),
+                transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+    ])
 
     def __init__(self, trained=False, model_name=None):
         super().__init__()
@@ -99,14 +110,30 @@ class Unet(nn.Module):
     def close(self):
         for sf in self.sfs: sf.remove()
 
-    def bb(self, img):
+    def segment(self, image):
         """
-        Crop chest bb from img, (1, 3, 256, 256)
+        image: cropped CXR PIL Image (h, w, 3)
         """
-        py = torch.sigmoid(self(img))
-        py = (py[0].cpu() > 0.5).type(torch.FloatTensor)
-        labels = skimage.measure.label(py[0].numpy())
-        mask = np.logical_or(labels==2, labels==1).astype(np.float32)
+        kernel = np.ones((10, 10))
+        iw, ih = image.size
+
+        image = V(self.tfm(image)[None])
+        py = torch.sigmoid(self(image))
+        py = (py[0].cpu() > 0.5).type(torch.FloatTensor) # 1, 256, 256
+
+        mask = py[0].numpy()
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.resize(mask, (iw, ih))
+        slice_y, slice_x = ndimage.find_objects(mask, 1)[0]
+        h, w = slice_y.stop - slice_y.start, slice_x.stop - slice_x.start
+
+        nw, nh = int(w/.875), int(h/.875)
+        dw, dh = (nw-w)//2, (nh-h)//2
+        t = max(slice_y.start-dh, 0)
+        l = max(slice_x.start-dw, 0)
+        b = min(slice_y.stop+dh, ih)
+        r = min(slice_x.stop+dw, iw)
+        return (t, l, b, r), mask
 
 
 
