@@ -1,6 +1,7 @@
 ##  Lung Segmentation and Thoracic Classification using Deep Learning
 
-This is my project for Thoracic Classification using explicit attention mechanism by lung segmentation on ChestX-ray-14 dataset for 14 different lung diseases (i.e. Atelectasis, Cardiomegaly, Effusion, Infiltration, Mass, Nodule, Pneumonia, Pneumothorax, Consolidation, Edema, Emphysema, Fibrosis, Pleural Thickening, and Hernia) 
+- This is my project for Thoracic Classification using explicit attention mechanism by lung segmentation on ChestX-ray-14 dataset for 14 different lung diseases (i.e. Atelectasis, Cardiomegaly, Effusion, Infiltration, Mass, Nodule, Pneumonia, Pneumothorax, Consolidation, Edema, Emphysema, Fibrosis, Pleural Thickening, and Hernia).
+- Segmentation Guided Thoracic Classification.
 
 ## Architecture
 
@@ -8,6 +9,13 @@ This is my project for Thoracic Classification using explicit attention mechanis
 
 - Lung segmentation use a modified version of ResNet with U-net liked decoder path.
 - Thoracic classification use DenseNet-121.
+
+## Prerequisites
+- Python 3.6+ (I use f-format string)
+- Pytorch 1.0.0
+- Fastai, I used this [branch](https://github.com/fastai/fastai/tree/45e9c480b82371db759586606adb03a71704fd8b) and create symbolic link from fastai/old/fastai to src/fastai directory
+- CheXNet and Unet models are in models directory
+- Start by looking at [src/chexnet.py](src/chexnet.py), [src/unet.py](src/unet.py) and [src/server.py](src/server.py)
 
 ## Dataset
 - NIH ChestX-ray Dataset with 112,120 images from 30,805 patients for classification, the dataset can be downloaded
