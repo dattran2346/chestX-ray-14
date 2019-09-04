@@ -1,2 +1,0 @@
-model_name,architecture,gpu,gpu_allocate,epochs,batches,train_batch_size,valid_batch_size,train_worker,validate_worker,train_percentage,valid_percentage,loss_function,optimizer,scheduler,train_time,test_time,auc_mean_on_test,Note
-20180420-092017,densenet121,1,5147M,300,500,32,64,4,8,1,1,BCELoss,"Adam(lr=0.001, betas=(0.9, 0.999))",ReduceLROnPlateau,574% cpu 11:51:06.46 total,309% cpu 7:03.35 total,0.815,"Loss just flickering up and down, no improvement, but auc increase over time"
