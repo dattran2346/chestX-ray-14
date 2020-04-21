@@ -17,7 +17,7 @@ def sigmoid_np(x):
     return 1. / (1. + np.exp(-x))
 
 def blend_segmentation(image, mask, gt_mask=None, boundary=False, alpha=1):
-    h, w = image.size
+    w, h = image.size
     color_mask = np.zeros((h, w, 3)) # PIL Image
     if boundary: mask = morphology.dilation(mask, morphology.disk(3)) - mask
     color_mask[mask==1] = [1, 0, 0] # RGB
